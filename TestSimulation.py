@@ -11,17 +11,20 @@ from io import BytesIO
 from PIL import Image
 import cv2
 
+from preprocess import preprocess
+
+
 sio = socketio.Server()
 app = Flask(__name__) #__main__
 maxSpeed = 10
 
 def preProcessing(img):
-    img = img[60:135, :, :]
-    img = cv2.cvtColor(img, cv2.COLOR_RGB2YUV)
-    img = cv2.GaussianBlur(img, (3, 3), 0)
-    img = cv2.resize(img, (200, 66))
-    img = img / 255
-
+    # img = img[60:135, :, :]
+    # img = cv2.cvtColor(img, cv2.COLOR_RGB2YUV)
+    # img = cv2.GaussianBlur(img, (3, 3), 0)
+    # img = cv2.resize(img, (200, 66))
+    # img = img / 255
+    img = preprocess(img)
     return img
 
 

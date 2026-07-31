@@ -71,3 +71,23 @@ def augment_rotate(img,  max_angle=10):
     ])
     img = cv2.warpAffine(img, M, (w, h))
     return img
+
+
+def random_augment(img, steering):
+    # np.random.rand generates a new number each if statement
+    if np.random.rand() < 0.5:
+        # print("flipped")
+        img, steering = augment_flip(img, steering)
+    if np.random.rand() < 0.5:
+        # print("brightness adjusted")   
+        img = augment_brightness(img)
+    if np.random.rand() < 0.5:
+        # print("zoomed in")
+        img = augment_zoom(img)
+    if np.random.rand() < 0.5:
+        # print("panned")
+        img = augment_pan(img)
+    if np.random.rand() < 0.5:
+        # print("rotated")
+        img = augment_rotate(img)
+    return img, steering
