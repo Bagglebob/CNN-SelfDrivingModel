@@ -16,7 +16,7 @@ from preprocess import preprocess
 
 sio = socketio.Server()
 app = Flask(__name__) #__main__
-maxSpeed = 10
+maxSpeed = 30
 
 def preProcessing(img):
     # img = img[60:135, :, :]
@@ -35,7 +35,12 @@ def telemetry(sid, data):
     image = np.asarray(image)
     image = preProcessing(image)
     image = np.array([image])
-    steering = float(model.predict(image))
+    # steering = float(model.predict(image))
+    # AI told me to use:
+    # verbose=0 to suppress the progress bar
+    # [0][0] to get the first element of the first element of the prediction
+    # * 1.5 to make the steering more responsive, since it was trained on keyboard input
+    steering = float(model.predict(image, verbose=0)[0][0])* 1.5
     throttle = 1.0 - speed/maxSpeed
     print(f'{throttle}, {steering}, {speed}')
     sendControl(steering, throttle)
@@ -54,6 +59,6 @@ def sendControl(steering, throttle):
     })
 
 if __name__ == "__main__":
-    model = load_model('model.h5')
+    model = load_model('model.h5', compile=False)
     app = socketio.Middleware(sio, app)
     eventlet.wsgi.server(eventlet.listen(('', 4567)), app)
