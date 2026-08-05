@@ -39,7 +39,6 @@ def telemetry(sid, data):
     # AI told me to use:
     # verbose=0 to suppress the progress bar
     # [0][0] to get the first element of the first element of the prediction
-    # * 1.5 to make the steering more responsive, since it was trained on keyboard input
     steering = float(model.predict(image, verbose=0)[0][0])* 1.5
     throttle = 1.0 - speed/maxSpeed
     print(f'{throttle}, {steering}, {speed}')
@@ -59,6 +58,6 @@ def sendControl(steering, throttle):
     })
 
 if __name__ == "__main__":
-    model = load_model('model.h5', compile=False)
+    model = load_model('model_best_working.h5', compile=False)
     app = socketio.Middleware(sio, app)
     eventlet.wsgi.server(eventlet.listen(('', 4567)), app)

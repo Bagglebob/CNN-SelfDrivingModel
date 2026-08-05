@@ -81,13 +81,13 @@ def random_augment(img, steering):
     if np.random.rand() < 0.5:
         # print("brightness adjusted")   
         img = augment_brightness(img)
-    if np.random.rand() < 0.5:
-        # print("zoomed in")
-        img = augment_zoom(img)
-    if np.random.rand() < 0.5:
-        # print("panned")
-        img = augment_pan(img)
-    if np.random.rand() < 0.5:
-        # print("rotated")
-        img = augment_rotate(img)
+    # if np.random.rand() < 0.5:
+    #     # print("zoomed in")
+    #     img = augment_zoom(img)
+    # if np.random.rand() < 0.5:
+    #     # print("panned")
+    #     img = augment_pan(img)
+    # if np.random.rand() < 0.5:
+    #     # print("rotated")
+    #     img = augment_rotate(img)
     return img, steering
