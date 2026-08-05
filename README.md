@@ -118,7 +118,7 @@ Builds batches on the fly instead of precomputing X/y once. This is what makes a
 
 ## Model
 
-The Nvidia PilotNet architecture ([Bojarski et al. 2016](https://arxiv.org/abs/1604.07316)): 5 conv layers, then 3 dense layers down to a **single linear output** — this is regression (predict a steering value), not classification, so there's no softmax.
+The Nvidia PilotNet architecture ([Bojarski et al. 2016](https://arxiv.org/abs/1604.07316)): 5 conv layers, then 3 dense layers down to a **single linear output** ; this is regression (continious value prediction), not classification so there's no softmax.
 
 Training setup:
 
