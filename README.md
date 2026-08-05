@@ -136,6 +136,35 @@ Training setup:
 **`augmentations.py`**: `random_augment` applies flip (mirrors the image **and negates the steering label**) and random brightness (steering unchanged). **Zoom, pan, and rotate exist but are disabled**: they change what the correct steering *should be* without updating the label, which teaches the model wrong answers.
 
 ---
+
+# Running the simulator
+
+Use **Python 3.10 or 3.11** (not 3.12/3.13). Newer Python breaks `eventlet` (`ssl.wrap_socket` was removed), and the Udacity bridge needs older `socketio` / `engineio` / `eventlet` packages.
+
+1. Create and activate a virtualenv in the project folder:
+   ```bash
+   py -3.11 -m pip install virtualenv
+   py -3.11 -m virtualenv .venv
+   .venv\Scripts\activate
+   ```
+2. Install the bridge + ML deps (pin these versions so they match the simulator):
+   ```bash
+   pip install tensorflow keras opencv-python pillow flask
+   pip install "python-socketio==4.6.1" "python-engineio==3.14.2" "eventlet==0.30.2"
+   ```
+3. Make sure `model_best_working.h5` (or whatever `TestSimulation.py` loads) is in the project root.
+4. Start the server:
+   ```bash
+   python TestSimulation.py
+   ```
+   It listens on port **4567**. When it prints something like “waiting” / starts the WSGI server, it’s ready — not stuck.
+5. Open the Udacity simulator → **Autonomous Mode** → select the track. The car should connect (`Connected` in the terminal) and start receiving steering/throttle commands.
+
+Notes:
+- Training and simulation must use the same preprocess (`preprocess.py`). `TestSimulation.py` already calls it.
+- Current script uses `maxSpeed = 30` and multiplies predicted steering by `1.5`.
+
+---
 # Few Notes:
 
 1. I took a racing line and found that the model was terrible because of it.
