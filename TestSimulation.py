@@ -36,7 +36,6 @@ def telemetry(sid, data):
     image = preProcessing(image)
     image = np.array([image])
     # steering = float(model.predict(image))
-    # AI told me to use:
     # verbose=0 to suppress the progress bar
     # [0][0] to get the first element of the first element of the prediction
     steering = float(model.predict(image, verbose=0)[0][0])* 1.5
