@@ -1,6 +1,6 @@
 # DPS920_final_project
 # Demo
-<iframe width="560" height="315" src="https://www.youtube.com/embed/q___c4VQNL8" frameborder="0" allowfullscreen></iframe>
+[Watch the demo video here.](https://youtu.be/q___c4VQNL8) 
 
 ---
 
