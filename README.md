@@ -1,11 +1,148 @@
 # DPS920_final_project
+# Demo
+<iframe width="560" height="315" src="https://www.youtube.com/embed/q___c4VQNL8" frameborder="0" allowfullscreen></iframe>
 
-# Few Notes (Fawad):
-1. I (Fawad) took a racing line and found that the model was terrible because of it.
-    - essentially, hitting the apex of corners, hugging the inside of a corner, going from outside to inside
+---
+
+# EDA (`EDA.ipynb`)
+
+The simulator writes `driving_log.csv` with 7 columns: paths to the center/left/right camera images, steering (-1 to 1), throttle (0-1), brake, and speed.
+
+The notebook does two things:
+
+1. **Explore the data.** Histograms of steering and speed, plus left/right/straight counts. Findings: the steering distribution is a huge spike at zero (the track is mostly straight), turns are roughly balanced left vs right, and most frames are at full throttle.
+2. **Balance the data.** Two versions exist side by side: the old manual deadzone approach, and the current Freedman–Diaconis binning (explained in the next section). The balanced result is saved as `balanced_log.csv`, which is what `train.ipynb` reads.
+
+---
+# Why the Freedman–Diaconis Rule?
+
+
+
+## The problem it solves
+
+The recorded steering values are overwhelmingly near zero due to the track being mostly straight; most frames are just "keep going straight." Training on that raw distribution produces a model that learns the laziest possible strategy: **always predict steering ≈ 0**. 
+With mean squared error, guessing zero is already correct most of the time, so there is little pressure to learn corners. The symptom was a car that would barely turn on corners.
+
+Fixing this means **reshaping the training distribution** so that turns are not drowned out by straights.
+
+### The first attempt, and why it wasn't good enough
+
+The original approach used a manual deadzone:
+
+```python
+DEADZONE = 0.025
+
+# if abs. steering is less than deadzone then put into near_straight bins
+near_straight = raw_df[
+    (raw_df["steering"].abs() < DEADZONE) & (raw_df["throttle"] == 1)
+]
+# if abs. steering is more than deadzone then put into turn bins
+turns = raw_df[raw_df["steering"].abs() >= DEADZONE]
+
+# keep a fraction of near_straight (not all, or the model overfits to 0 steering)
+straight = near_straight.sample(frac=0.45, random_state=42)
+
+balanced = pd.concat([straight, turns]).sample(frac=1, random_state=42)
+sns.histplot(balanced["steering"], bins=25, kde=True)
+print("near-straight kept:", len(straight), "/", len(near_straight))
+print("turns:", len(turns), "total:", len(balanced))
+```
+
+It partially worked, but had 2 problems:
+
+- **Two magic numbers.** `0.025` and `0.45` were picked arbitrarily.
+- **Binary thinking.** A 0.03 wiggle and a 0.40 hard corner were both classified as a "a turn," despite being completely different driving events.
+
+
+
+### Reframing the goal
+
+The deadzone approach asks *"is this frame a turn?"*. The better question is *"is any part of the steering range over-represented?"*. Essentially, the goal is to **downsample the straights**.
+
+Rather than manually deciding which steering values count as "straight," the steering range is divided into equal-width intervals (`bin_width`). The count in each interval then reveals which parts of the range are over-represented. In this dataset, those are the intervals near zero steering.
+
+The Freedman–Diaconis rule is used only to choose a suitable width for these intervals. It estimates the width from the spread and size of the dataset instead of using a manually selected deadzone or number of bins:
+
+```
+bin_width = 2 × IQR / n^(1/3)
+```
+
+
+
+### Why IQR, and why the cube root
+
+`IQR` **sets the scale.** Bin width has to be proportional to how spread out the data is. One way to measure spread is standard deviation using Scott's rule, `3.49 × σ × n^(-1/3)`. But standard deviation is dragged upward by sharp turns. This data is mouse-recorded and contains occasional sharp corrections out near the steering limits, and under Scott's rule those few frames would widen *every* bin in the histogra due to the sensitivity of standard deviation to outliers. 
+
+`n^(1/3)` **links bin width to the amount of data.** Since `n` is in the denominator, more data = narrower bins. That makes sense because narrow bins only work when there is enough data:
+
+- If bins are too **wide**, different steering behaviours get lumped into the same bar (a 0.03 wiggle and a 0.10 turn could share a bin).
+- If bins are too **narrow**, each bin only holds a few frames, and the counts are basically random luck instead of a real pattern.
+
+So there is a sweet spot: as narrow as possible, but each bin still needs enough frames in it to be worthwhile. How narrow you can go depends on how much data you have. The cube root is the rate (proven in the Freedman–Diaconis paper) at which you can safely shrink the bins as the dataset grows.
+
+### Implementation:
+
+1. Keep only full-throttle frames (`throttle == 1`) so speed is roughly constant.
+2. Compute `bin_width` from the IQR and `n`, convert it to a bin count, and label every frame with `pd.cut`.
+3. Cap each bin at the **mean bin count** (62 frames here) ; sample randomly inside over-full bins, keep under-full bins entirely.
+4. Shuffle and write out `balanced_log.csv`.
+
+This cut the dataset from **7,667 frames to 3,039**. The near-zero bins are the ones that got trimmed; the hard-corner bins were kept in full.
+
+### What this does *not* solve
+
+- **The per-bin cap is still arbitrary.** `max_per_bin = counts.mean()` is a sensible target, but nothing derives it.
+
+**Reference:** [Freedman–Diaconis rule — Wikipedia](https://en.wikipedia.org/wiki/Freedman%E2%80%93Diaconis_rule)
+**Reference:** [Freedman, D. and Diaconis, P. (1981) On the Histogram as a Density Estimator: L2 Theory.](https://doi.org/10.1007/BF01025868)
+Freedman, D. and Diaconis, P. (1981) On the Histogram as a Density Estimator: L2 Theory. Zeitschrift für Wahrscheinlichkeitstheorie und Verwandte Gebiete/Journal for Probability Theory and Related Fields, 57, 453-476.
+[https://doi.org/10.1007/BF01025868](https://doi.org/10.1007/BF01025868)
+
+---
+
+# Training (`train.ipynb`)
+
+1. **Load and split:** Reads the balanced log, then an 80/20 train/validation split (`random_state=42` so the split is reproducible).
+2. **Test Cells:** One-image test cells for `random_augment` and `preprocess`, so I can see what the model actually receives before training on it.
+3. **Filter missing images:** Some rows in the log point to image files that no longer exist on disk (deleted/corrupted/missing). Dropping those rows up front stops the generator from producing short or empty batches mid-training.
+
+## DataGenerator
+
+Builds batches on the fly instead of precomputing X/y once. This is what makes augmentation **dynamic**: every epoch re-rolls the random choices, so the model has a lower chance of seeing the same batch in the next epoch. Per training sample:
+
+- Randomly pick center/left/right camera. Side cameras get a **±0.2 steering correction** — a left-camera frame looks like the car drifted left, so the label is adjusted toward steering back. This is free "recovery" data.
+- Apply `random_augment` (flip/brightness).
+- Apply `preprocess` so training images match what the simulator will feed the model.
+
+**Validation batches skip all of it (center camera, no augments) so `val_loss` measures the real task.**
+
+## Model
+
+The Nvidia PilotNet architecture ([Bojarski et al. 2016](https://arxiv.org/abs/1604.07316)): 5 conv layers, then 3 dense layers down to a **single linear output** — this is regression (predict a steering value), not classification, so there's no softmax.
+
+Training setup:
+
+- **Adam @ 1e-4, MSE loss**: standard for regression.
+- **EarlyStopping** (patience 5 on `val_loss`): stops when validation stops improving, restores the best weights.
+- **ModelCheckpoint**: saves the best `val_loss` model to `model.h5` during training, so a bad final epoch can't overwrite a good model.
+- Loss curves are plotted at the end to check for overfitting (train loss dropping while val loss rises).
+
+---
+
+# Support scripts
+
+**`preprocess.py`**: the pipeline every image goes through, in training *and* in the simulator: crop to the road region → RGB-to-YUV (what PilotNet was designed for) → Gaussian blur → resize to 200×66 (PilotNet's input size) → normalize to [0, 1]. It must be identical in both places, otherwise the model gets inputs at test time that it never saw in training.
+
+**`augmentations.py`**: `random_augment` applies flip (mirrors the image **and negates the steering label**) and random brightness (steering unchanged). **Zoom, pan, and rotate exist but are disabled**: they change what the correct steering *should be* without updating the label, which teaches the model wrong answers.
+
+---
+# Few Notes:
+
+1. I took a racing line and found that the model was terrible because of it.
+  - essentially, hitting the apex of corners, hugging the inside of a corner, going from outside to inside
     - this resulted in the car trying to start the turn from the outside, but failed to give enough steering input to corner, resulting in understeer.
 2. Additionally, I used keyboard to generate the training data at first. The caveats for this include:
-    - Speed affects turn radius; I gathered data at a consistent 30km/h with the throttle down all the way.
-    - At a lower speed, the steering inputs result in understeer (less distance is covered at 'x' steering, before the steering value goes back to 0)
+  - Speed affects turn radius; I gathered data at a consistent 30km/h with the throttle down all the way.
+    - At a lower speed, the steering inputs ***may*** have result in understeer (less distance is covered at 'x' steering, before the steering value goes back to 0)
     - I even tried to multiply the predicted steering by 1.5 but that didn't fix it.
-3. Upon gathering data with **mouse steering** I found...
+3. I realized that I was applying Augments statically (The way I built X / y in train.ipynb, augment runs once per image. After that, every epoch sees the same augmented images. That’s static (offline) augmentation). I need to use DataGenerator. This was **Nazanin's** idea.
