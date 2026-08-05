@@ -118,7 +118,7 @@ Builds batches on the fly instead of precomputing X/y once. This is what makes a
 
 ## Model
 
-The Nvidia PilotNet architecture ([Bojarski et al. 2016](https://arxiv.org/abs/1604.07316)): 5 conv layers, then 3 dense layers down to a **single linear output** ; this is regression (continious value prediction), not classification so there's no softmax.
+The model layers ([Bojarski et al. 2016](https://arxiv.org/abs/1604.07316)): 5 conv layers, then 3 dense layers down to a **single linear output** ; this is regression (continious value prediction), not classification so there's no softmax.
 
 Training setup:
 
@@ -131,7 +131,7 @@ Training setup:
 
 # Support scripts
 
-**`preprocess.py`**: the pipeline every image goes through, in training *and* in the simulator: crop to the road region → RGB-to-YUV (what PilotNet was designed for) → Gaussian blur → resize to 200×66 (PilotNet's input size) → normalize to [0, 1]. It must be identical in both places, otherwise the model gets inputs at test time that it never saw in training.
+**`preprocess.py`**: the pipeline every image goes through, in training *and* in the simulator: crop to the road region → RGB-to-YUV → Gaussian blur → resize to 200×66 → normalize to [0, 1]. It must be identical in both places, otherwise the model gets inputs at test time that it never saw in training.
 
 **`augmentations.py`**: `random_augment` applies flip (mirrors the image **and negates the steering label**) and random brightness (steering unchanged). **Zoom, pan, and rotate exist but are disabled**: they change what the correct steering *should be* without updating the label, which teaches the model wrong answers.
 
