@@ -94,9 +94,9 @@ This cut the dataset from **7,667 frames to 3,039**. The near-zero bins are the 
 - **The per-bin cap is still arbitrary.** `max_per_bin = counts.mean()` is a sensible target, but nothing derives it.
 
 **Reference:** [Freedman–Diaconis rule — Wikipedia](https://en.wikipedia.org/wiki/Freedman%E2%80%93Diaconis_rule)
+
 **Reference:** [Freedman, D. and Diaconis, P. (1981) On the Histogram as a Density Estimator: L2 Theory.](https://doi.org/10.1007/BF01025868)
-Freedman, D. and Diaconis, P. (1981) On the Histogram as a Density Estimator: L2 Theory. Zeitschrift für Wahrscheinlichkeitstheorie und Verwandte Gebiete/Journal for Probability Theory and Related Fields, 57, 453-476.
-[https://doi.org/10.1007/BF01025868](https://doi.org/10.1007/BF01025868)
+
 
 ---
 
