@@ -118,6 +118,7 @@ Builds batches on the fly instead of precomputing X/y once. This is what makes a
 
 **Validation batches skip all of it (center camera, no augments) so `val_loss` measures the real task.**
 
+   Developed as a group course project. Each member built an independent pipeline; this repo is my implementation. The on-the-fly DataGenerator approach was inspired by a teammate’s code. 
 ## Model
 
 Layers follow [Bojarski et al. 2016](https://arxiv.org/abs/1604.07316):
